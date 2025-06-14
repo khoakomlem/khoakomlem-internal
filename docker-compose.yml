@@ -106,7 +106,7 @@ volumes:
     driver_opts:
       type: none
       o: bind
-      device: ${VOLUMES_PATH:-./volumes}/sonarqube/postgres
+      device: ${VOLUMES_PATH:-./volumes}/postgres
 
 networks:
   ci_network:
