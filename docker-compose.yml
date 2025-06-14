@@ -112,8 +112,3 @@ networks:
   ci_network:
     driver: bridge
     name: ${NETWORK_NAME:-ci_network}
-
-# Note: env_file should be defined at service level, not at root level
-# Add this to individual services if needed:
-env_file:
-  - .env
