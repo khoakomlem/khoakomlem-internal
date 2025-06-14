@@ -1,0 +1,119 @@
+version: '3.8'
+
+services:
+  jenkins:
+    container_name: ${JENKINS_CONTAINER_NAME:-jenkins}
+    restart: unless-stopped
+    build:
+      context: ./dockerfiles/jenkins
+      dockerfile: Dockerfile
+    ports:
+      - "${JENKINS_HTTP_PORT:-8080}:8080"
+      - "${JENKINS_AGENT_PORT:-50000}:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      # - /var/run/docker.sock:/var/run/docker.sock:ro
+      # - /usr/bin/docker:/usr/bin/docker:ro
+    environment:
+      - JENKINS_OPTS=--httpPort=8080
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false -Xmx${JENKINS_MAX_MEMORY:-2g} -Xms${JENKINS_MIN_MEMORY:-1g}
+    networks:
+      - ci_network
+    depends_on:
+      - sonarqube
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/login"]
+      interval: ${HEALTHCHECK_INTERVAL:-30s}
+      timeout: ${HEALTHCHECK_TIMEOUT:-10s}
+      retries: ${HEALTHCHECK_RETRIES:-5}
+      start_period: ${JENKINS_START_PERIOD:-60s}
+
+  sonarqube:
+    container_name: ${SONARQUBE_CONTAINER_NAME:-sonarqube}
+    image: sonarqube:lts-community
+    restart: unless-stopped
+    ports:
+      - "${SONARQUBE_PORT:-9000}:9000"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_logs:/opt/sonarqube/logs
+      - sonarqube_extensions:/opt/sonarqube/extensions
+    environment:
+      - SONAR_JDBC_URL=jdbc:postgresql://${POSTGRES_CONTAINER_NAME:-postgres}:5432/${POSTGRES_DB}
+      - SONAR_JDBC_USERNAME=${POSTGRES_USER}
+      - SONAR_JDBC_PASSWORD=${POSTGRES_PASSWORD}
+      - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=${SONAR_ES_BOOTSTRAP_CHECKS_DISABLE:-true}
+    networks:
+      - ci_network
+    depends_on:
+      - postgres
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/api/system/status"]
+      interval: ${HEALTHCHECK_INTERVAL:-30s}
+      timeout: ${HEALTHCHECK_TIMEOUT:-10s}
+      retries: ${HEALTHCHECK_RETRIES:-5}
+      start_period: ${SONARQUBE_START_PERIOD:-120s}
+    ulimits:
+      nofile:
+        soft: ${SONARQUBE_NOFILE_SOFT:-65536}
+        hard: ${SONARQUBE_NOFILE_HARD:-65536}
+
+  postgres:
+    container_name: ${POSTGRES_CONTAINER_NAME:-sonarqube_postgres}
+    image: postgres:17-alpine
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    networks:
+      - ci_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: ${HEALTHCHECK_INTERVAL:-30s}
+      timeout: ${HEALTHCHECK_TIMEOUT:-10s}
+      retries: ${HEALTHCHECK_RETRIES:-5}
+
+volumes:
+  jenkins_home:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${VOLUMES_PATH:-./volumes}/jenkins
+  sonarqube_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${VOLUMES_PATH:-./volumes}/sonarqube/data
+  sonarqube_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${VOLUMES_PATH:-./volumes}/sonarqube/logs
+  sonarqube_extensions:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${VOLUMES_PATH:-./volumes}/sonarqube/extensions
+  postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${VOLUMES_PATH:-./volumes}/sonarqube/postgres
+
+networks:
+  ci_network:
+    driver: bridge
+    name: ${NETWORK_NAME:-ci_network}
+
+# Note: env_file should be defined at service level, not at root level
+# Add this to individual services if needed:
+env_file:
+  - .env
