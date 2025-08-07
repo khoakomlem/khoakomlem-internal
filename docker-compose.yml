@@ -11,7 +11,7 @@ services:
     networks:
       - ci_network
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "2376"]
+      test: ["CMD", "socat", "-T1", "/dev/null", "TCP:localhost:2376"]
       interval: ${HEALTHCHECK_INTERVAL:-30s}
       timeout: ${HEALTHCHECK_TIMEOUT:-5s}
       retries: ${HEALTHCHECK_RETRIES:-3}
