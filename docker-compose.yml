@@ -1,6 +1,21 @@
-version: '3.8'
-
 services:
+  docker-proxy:
+    container_name: ${DOCKER_PROXY_CONTAINER_NAME:-docker-proxy}
+    image: alpine/socat:latest
+    restart: unless-stopped
+    command: tcp-listen:2376,fork,reuseaddr unix-connect:/var/run/docker.sock
+    ports:
+      - "${DOCKER_PROXY_PORT:-2376}:2376"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - ci_network
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2376"]
+      interval: ${HEALTHCHECK_INTERVAL:-30s}
+      timeout: ${HEALTHCHECK_TIMEOUT:-5s}
+      retries: ${HEALTHCHECK_RETRIES:-3}
+
   jenkins:
     container_name: ${JENKINS_CONTAINER_NAME:-jenkins}
     restart: unless-stopped
@@ -12,15 +27,18 @@ services:
       - "${JENKINS_AGENT_PORT:-50000}:50000"
     volumes:
       - jenkins_home:/var/jenkins_home
-      # - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       # - /usr/bin/docker:/usr/bin/docker:ro
     environment:
       - JENKINS_OPTS=--httpPort=8080
       - JAVA_OPTS=-Djenkins.install.runSetupWizard=false -Xmx${JENKINS_MAX_MEMORY:-2g} -Xms${JENKINS_MIN_MEMORY:-1g}
+      # Docker host for remote agents
+      - DOCKER_HOST=${DOCKER_PROXY_HOST:-tcp://docker-proxy:2376}
     networks:
       - ci_network
     depends_on:
       - sonarqube
+      - docker-proxy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/login"]
       interval: ${HEALTHCHECK_INTERVAL:-30s}
@@ -30,7 +48,7 @@ services:
 
   sonarqube:
     container_name: ${SONARQUBE_CONTAINER_NAME:-sonarqube}
-    image: sonarqube:lts-community
+    image: sonarqube:community
     restart: unless-stopped
     ports:
       - "${SONARQUBE_PORT:-9000}:9000"
