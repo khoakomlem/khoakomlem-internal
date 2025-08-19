@@ -4,12 +4,12 @@ services:
     image: alpine/socat:latest
     restart: unless-stopped
     command: tcp-listen:2376,fork,reuseaddr unix-connect:/var/run/docker.sock
-    ports:
-      - "${DOCKER_PROXY_PORT:-2376}:2376"
+    # ports:
+    #   - "${DOCKER_PROXY_PORT:-2376}:2376"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
-      - ci_network
+      - cicd_network
     healthcheck:
       test: ["CMD", "socat", "-T1", "/dev/null", "TCP:localhost:2376"]
       interval: ${HEALTHCHECK_INTERVAL:-30s}
@@ -24,18 +24,17 @@ services:
       dockerfile: Dockerfile
     ports:
       - "${JENKINS_HTTP_PORT:-8080}:8080"
-      - "${JENKINS_AGENT_PORT:-50000}:50000"
+      # - "${JENKINS_AGENT_PORT:-50000}:50000"
     volumes:
       - jenkins_home:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock:ro
       # - /usr/bin/docker:/usr/bin/docker:ro
     environment:
-      - JENKINS_OPTS=--httpPort=8080
       - JAVA_OPTS=-Djenkins.install.runSetupWizard=false -Xmx${JENKINS_MAX_MEMORY:-2g} -Xms${JENKINS_MIN_MEMORY:-1g}
       # Docker host for remote agents
       - DOCKER_HOST=${DOCKER_PROXY_HOST:-tcp://docker-proxy:2376}
     networks:
-      - ci_network
+      - cicd_network
     depends_on:
       - sonarqube
       - docker-proxy
@@ -62,7 +61,7 @@ services:
       - SONAR_JDBC_PASSWORD=${POSTGRES_PASSWORD}
       - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=${SONAR_ES_BOOTSTRAP_CHECKS_DISABLE:-true}
     networks:
-      - ci_network
+      - cicd_network
     depends_on:
       - postgres
     healthcheck:
@@ -87,7 +86,7 @@ services:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     networks:
-      - ci_network
+      - cicd_network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: ${HEALTHCHECK_INTERVAL:-30s}
@@ -127,6 +126,6 @@ volumes:
       device: ${VOLUMES_PATH:-./volumes}/postgres
 
 networks:
-  ci_network:
+  cicd_network:
     driver: bridge
-    name: ${NETWORK_NAME:-ci_network}
+    name: ${NETWORK_NAME:-cicd_network}

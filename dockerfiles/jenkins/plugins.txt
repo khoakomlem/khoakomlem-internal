@@ -2,19 +2,9 @@
 # Core functionality
 workflow-aggregator:latest
 pipeline-stage-view:latest
-blueocean:latest
 
 # SCM
 git:latest
-github:latest
-
-# Build tools
-# maven-plugin:latest
-# gradle:latest
-
-# Docker integration
-docker-plugin:latest
-docker-workflow:latest
 
 # Utilities
 build-timeout:latest
@@ -28,10 +18,6 @@ ant:latest
 # Security
 # matrix-auth:latest
 
-# Optional: Remove or comment out if not needed
-# kubernetes:latest
-# ansible:latest
-# nodejs:latest
 scm-api:latest
 generic-webhook-trigger:latest
 json-path-api:latest
